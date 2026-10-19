@@ -1,0 +1,82 @@
+{
+  "synthetic": true,
+  "mode": "mock",
+  "source_csv": "data/simulation_edge_cases.csv",
+  "runs": [
+    {
+      "run_id": "synthetic_clarify",
+      "game_id": "8bd67a39e866463daeeaee30b2a07f33",
+      "seed": 43,
+      "participant_count": 6,
+      "phase": "finished",
+      "submission_count": 8,
+      "final_outcome": "continue",
+      "team_outcomes": {
+        "team_1": "success",
+        "team_2": "success"
+      },
+      "assessment_outcomes": [
+        "continue",
+        "continue",
+        "continue",
+        "continue",
+        "clarify",
+        "continue",
+        "continue",
+        "continue"
+      ],
+      "transcript": "transcript_synthetic_clarify.csv",
+      "game": "game_synthetic_clarify.json"
+    },
+    {
+      "run_id": "synthetic_recovery",
+      "game_id": "3659e468c50d42dca10591fe0a9992f3",
+      "seed": 44,
+      "participant_count": 6,
+      "phase": "finished",
+      "submission_count": 8,
+      "final_outcome": "continue",
+      "team_outcomes": {
+        "team_1": "recovered",
+        "team_2": "success"
+      },
+      "assessment_outcomes": [
+        "continue",
+        "continue",
+        "continue",
+        "continue",
+        "fail",
+        "continue",
+        "continue",
+        "continue"
+      ],
+      "transcript": "transcript_synthetic_recovery.csv",
+      "game": "game_synthetic_recovery.json"
+    },
+    {
+      "run_id": "synthetic_timeout",
+      "game_id": "59cb6b153c594c419a07852bf989412d",
+      "seed": 45,
+      "participant_count": 6,
+      "phase": "finished",
+      "submission_count": 8,
+      "final_outcome": "continue",
+      "team_outcomes": {
+        "team_1": "recovered",
+        "team_2": "success"
+      },
+      "assessment_outcomes": [
+        "continue",
+        "continue",
+        "continue",
+        "continue",
+        "continue",
+        "fail",
+        "continue",
+        "continue"
+      ],
+      "transcript": "transcript_synthetic_timeout.csv",
+      "game": "game_synthetic_timeout.json"
+    }
+  ]
+}

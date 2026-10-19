@@ -218,3 +218,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Game state and local working files
+runtime/
+work/
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+.env.*
+!.env.example
+
+# Full business source material stays in the local archive, not public Git.
+docs/sources/
+data/author_text.json
+data/scenarios.json
+data/example_answers.csv
