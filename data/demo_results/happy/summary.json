@@ -1,0 +1,31 @@
+{
+  "synthetic": true,
+  "mode": "mock",
+  "source_csv": "data/simulated_answers.csv",
+  "runs": [
+    {
+      "run_id": "synthetic_happy",
+      "game_id": "8f95aab3c4a8408bbeff8f9c546301b1",
+      "seed": 42,
+      "participant_count": 6,
+      "phase": "finished",
+      "submission_count": 7,
+      "final_outcome": "continue",
+      "team_outcomes": {
+        "team_1": "success",
+        "team_2": "success"
+      },
+      "assessment_outcomes": [
+        "continue",
+        "continue",
+        "continue",
+        "continue",
+        "continue",
+        "continue",
+        "continue"
+      ],
+      "transcript": "transcript_synthetic_happy.csv",
+      "game": "game_synthetic_happy.json"
+    }
+  ]
+}
