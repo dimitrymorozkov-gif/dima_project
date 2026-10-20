@@ -161,7 +161,7 @@ def build_game_graph(evaluator, clock=time.time):
         }
         assessment = evaluator.evaluate(context).model_dump()
         cmd["evaluation_seconds"] = max(0, clock() - cmd["now"])
-        assessment["provenance"] = "mock_heuristic" if game["mode"] == "mock" else "openai"
+        assessment["provenance"] = "mock_heuristic" if game["mode"] == "mock" else game["mode"]
         return {"assessment": assessment, "record": _record(state, assessment)}
 
     def timeout(state):
@@ -241,7 +241,7 @@ def build_game_graph(evaluator, clock=time.time):
 
 class GameService:
     def __init__(self, db_path: str | Path = "runtime/game.sqlite3", mode="mock", model=None, api_key=None, clock=time.time, evaluator=None):
-        if mode not in {"mock", "openai"}:
+        if mode not in {"mock", "openai", "deepseek"}:
             raise ValueError("Неизвестный режим оценки.")
         self.store = SQLiteStore(db_path)
         self.mode = mode

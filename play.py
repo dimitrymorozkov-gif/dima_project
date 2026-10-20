@@ -15,6 +15,10 @@ from game_agent.game import ConcurrentUpdate, GameService, current_prompt, trans
 
 
 ROOT = Path(__file__).resolve().parent
+PROVIDERS = {
+    "deepseek": {"name": "DeepSeek", "key_env": "DEEPSEEK_API_KEY", "model_env": "DEEPSEEK_MODEL", "default_model": "deepseek-flash"},
+    "openai": {"name": "OpenAI", "key_env": "OPENAI_API_KEY", "model_env": "OPENAI_MODEL", "default_model": "gpt-4.1-mini"},
+}
 PHASE_NAMES = {
     "intro": "Вводный выбор",
     "decision": "Решение команды",
@@ -173,20 +177,30 @@ def main() -> None:
     with st.sidebar:
         st.header("Ведущий")
         demo = st.toggle("Демо без API", value=True)
+        provider = st.selectbox(
+            "API-провайдер", list(PROVIDERS),
+            format_func=lambda value: PROVIDERS[value]["name"],
+        )
+        provider_settings = PROVIDERS[provider]
         api_key = st.text_input(
-            "OpenAI API key",
+            f"{provider_settings['name']} API key",
             type="password",
+            key=f"api_key_{provider}",
             help="Используется только в текущем сеансе. Ключ не записывается в игру или результаты.",
         )
-        model = st.text_input("Модель", value=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
-        effective_key = api_key.strip() or os.getenv("OPENAI_API_KEY")
-        mode = "mock" if demo or not effective_key else "openai"
+        model = st.text_input(
+            "Модель", key=f"api_model_{provider}",
+            value=os.getenv(provider_settings["model_env"], provider_settings["default_model"]),
+        )
+        effective_key = (api_key.strip() or os.getenv(provider_settings["key_env"], "")).strip()
+        mode = "mock" if demo else provider
         if mode == "mock":
             st.caption("Демонстрационный ведущий использует словарную эвристику. Это имитация оценки для проверки игры.")
-            if not demo and not effective_key:
-                st.info("Для OpenAI нужен ключ. Сейчас включена имитация ответов ведущего.")
         else:
-            st.caption("Ответы оценивает OpenAI. История игры сохраняется локально.")
+            st.caption(
+                f"Вопросы, ответы и история игры отправляются в {provider_settings['name']} "
+                "для оценки. Игра сохраняется локально."
+            )
         examples = ROOT / "data" / "simulated_answers.csv"
         if examples.is_file():
             st.download_button(
@@ -194,10 +208,18 @@ def main() -> None:
                 file_name=examples.name, mime="text/csv; charset=utf-8",
             )
 
+    if mode != "mock" and not effective_key:
+        st.error(
+            f"Для {provider_settings['name']} нужен собственный API-ключ. Укажите его в поле "
+            f"«{provider_settings['name']} API key» или задайте {provider_settings['key_env']}. "
+            "Создание и продолжение игры недоступны, пока ключ не указан."
+        )
+        st.stop()
+
     service = perform(
         lambda: GameService(
             db_path=os.getenv("GAME_DB_PATH", str(ROOT / "runtime" / "game.sqlite3")),
-            mode=mode, model=model.strip() or None, api_key=effective_key if mode == "openai" else None,
+            mode=mode, model=model.strip() or None, api_key=effective_key if mode != "mock" else None,
         ),
         "Проверьте настройки ведущего и путь к хранилищу.",
     )
@@ -265,7 +287,11 @@ def main() -> None:
         if game["mode"] == "mock":
             st.warning("Эта игра создана в демо. Включите «Демо без API» для продолжения.")
         else:
-            st.warning("Эта игра создана с OpenAI. Отключите «Демо без API» и укажите ключ для продолжения.")
+            saved_provider = PROVIDERS[game["mode"]]
+            st.warning(
+                f"Эта игра создана с {saved_provider['name']}. Отключите «Демо без API», "
+                f"выберите {saved_provider['name']} в поле «API-провайдер» и укажите его ключ для продолжения."
+            )
     st.caption("ID игры — сохраните его для восстановления в этом хранилище:")
     st.code(game["id"], language=None)
     if st.button("Обновить время и состояние"):
