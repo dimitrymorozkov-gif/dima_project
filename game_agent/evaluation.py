@@ -11,6 +11,7 @@ import os
 import re
 from typing import Annotated, Any, Literal, Protocol
 
+from langchain_core.messages import SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -163,6 +164,80 @@ class OpenAIEvaluator:
         return Assessment.model_validate(result)
 
 
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_DEFAULT_MODEL = "deepseek-flash"
+_DEEPSEEK_EXAMPLE = {
+    "outcome": "continue",
+    "feedback": "В плане названы действия и распределены роли.",
+    "follow_up": "",
+    "scores": {axis: 1 for axis in SCORE_AXES},
+    "reasons": ["Команда описала действия, помощь и возможные последствия."],
+    "educational": "Уточняйте запасной план и проверяйте доступность помощи.",
+}
+DEEPSEEK_SYSTEM_PROMPT = (
+    SYSTEM_PROMPT
+    + "\nВерни только один полный JSON-объект (json), без Markdown и текста снаружи.\n"
+    + "Следуй JSON Schema ниже. Пример показывает только структуру; оцени реальный ответ.\n"
+    + "JSON Schema:\n"
+    + json.dumps(Assessment.model_json_schema(), ensure_ascii=False)
+    + "\nПример полного JSON-объекта:\n"
+    + json.dumps(_DEEPSEEK_EXAMPLE, ensure_ascii=False)
+)
+
+
+class DeepSeekEvaluator:
+    """DeepSeek Chat Completions with JSON mode and strict local validation.
+
+    The OpenAI-compatible transport receives a DeepSeek key and fixed endpoint.
+    Returning raw messages lets us reject incomplete JSON instead of accepting
+    LangChain's otherwise useful automatic repair of a truncated JSON document.
+    """
+
+    def __init__(
+        self, model: str = DEEPSEEK_DEFAULT_MODEL, api_key: str | None = None
+    ) -> None:
+        resolved_key = api_key if api_key is not None else os.environ.get("DEEPSEEK_API_KEY")
+        if not resolved_key or not resolved_key.strip():
+            raise ValueError("Для режима deepseek задайте DEEPSEEK_API_KEY или передайте api_key")
+        if not model or not model.strip():
+            raise ValueError("Имя модели DeepSeek не должно быть пустым")
+        # SystemMessage is a literal message: braces in schema/example are not
+        # processed by the prompt template, nor is any player-provided context.
+        self.prompt = ChatPromptTemplate.from_messages(
+            [SystemMessage(content=DEEPSEEK_SYSTEM_PROMPT), ("human", "{context_json}")]
+        )
+        chat = ChatOpenAI(
+            model=model.strip(),
+            api_key=resolved_key.strip(),
+            base_url=DEEPSEEK_BASE_URL,
+            use_responses_api=False,
+            timeout=45,
+            max_retries=1,
+            # ChatOpenAI renames its max_tokens parameter to max_completion_tokens.
+            # DeepSeek accepts max_tokens, so preserve the provider's body field.
+            extra_body={"max_tokens": 4096, "thinking": {"type": "disabled"}},
+        )
+        self.runnable = self.prompt | chat.with_structured_output(
+            Assessment, method="json_mode", include_raw=True
+        )
+
+    def evaluate(self, context: dict[str, Any]) -> Assessment:
+        payload = json.dumps(context, ensure_ascii=False, allow_nan=False)
+        result = self.runnable.invoke({"context_json": payload})
+        raw = result["raw"]
+        if raw.response_metadata.get("finish_reason") == "length":
+            raise ValueError("Ответ DeepSeek обрезан лимитом токенов; оценка не сохранена")
+        content = raw.content
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("DeepSeek вернул пустой JSON-ответ; оценка не сохранена")
+        # json.loads deliberately rejects Markdown wrappers, trailing output and
+        # missing braces that the structured parser may otherwise auto-complete.
+        data = json.loads(content)
+        if result.get("parsing_error") is not None:
+            raise result["parsing_error"]
+        return Assessment.model_validate(data)
+
+
 # Two independent, visible groups per axis; each matched group contributes 1.
 # These are deliberately broad Russian word stems, not semantic judgements.
 MOCK_INDICATORS: dict[str, tuple[str, str]] = {
@@ -266,4 +341,8 @@ def create_evaluator(
         return MockEvaluator()
     if mode == "openai":
         return OpenAIEvaluator(model or os.environ.get("OPENAI_MODEL", "gpt-4.1-mini"), api_key)
-    raise ValueError("Неизвестный режим оценки; выберите mock или openai")
+    if mode == "deepseek":
+        return DeepSeekEvaluator(
+            model or os.environ.get("DEEPSEEK_MODEL", DEEPSEEK_DEFAULT_MODEL), api_key
+        )
+    raise ValueError("Неизвестный режим оценки; выберите mock, openai или deepseek")
