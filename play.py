@@ -10,6 +10,7 @@ import time
 from typing import Any, Callable
 
 import streamlit as st
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 from game_agent.game import ConcurrentUpdate, GameService, current_prompt, transcript_csv
 
@@ -171,6 +172,10 @@ def answer_form(
 
 
 def main() -> None:
+    if get_script_run_ctx(suppress_warning=True) is None:
+        raise SystemExit(
+            "Запустите интерфейс командой: python -m streamlit run app.py"
+        )
     st.set_page_config(page_title="Игра решений — команды", page_icon="🎲", layout="wide")
     st.title("Игра решений")
     st.caption("6–10 участников, команды по 2–3 человека, самостоятельные решения и общий финал.")
